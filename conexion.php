@@ -1,4 +1,5 @@
 <?php
+//date_default_timezone_set('America/Guatemala');
 $host = '38.242.252.164';
 $db   = 'RotarioDB';
 $user = 'Rotario';

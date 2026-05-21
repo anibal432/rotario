@@ -1,0 +1,1 @@
+echo "<?php echo function_exists('mb_substr') ? 'MB OK' : 'MB FALLA'; ?>" > /var/www/html/test_mb.php

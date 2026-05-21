@@ -58,7 +58,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $observaciones = $_POST['observaciones'] ?? '';
         $confirmar_suspension = $_POST['confirmar_suspension'] ?? 'no';
         
-        // Guardar datos del formulario para repoblar si hay error
         $datos_formulario = [
             'promedio' => $promedio,
             'periodo' => $periodo,
@@ -74,12 +73,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('El promedio debe estar entre 0 y 100');
         }
 
-        // VALIDACIÓN CRÍTICA: Promedio menor a 75 requiere confirmación
         if ($promedio < 75 && $confirmar_suspension !== 'si') {
             $requiere_confirmacion = true;
             throw new Exception('CONFIRMACIÓN_REQUERIDA');
         }
 
+        // ─────────────────────────────────────────────────────────────────────
+        // CORRECCIÓN PRINCIPAL: guardar ruta RELATIVA, no absoluta
+        // Ruta relativa desde la raíz del sitio: uploads/boletas/AÑO/archivo.ext
+        // Así la URL quedará: https://dominio.com/uploads/boletas/2026/archivo.ext
+        // ─────────────────────────────────────────────────────────────────────
         $ruta_archivo = null;
         if (isset($_FILES['archivo_boleta']) && $_FILES['archivo_boleta']['error'] === UPLOAD_ERR_OK) {
             $archivo = $_FILES['archivo_boleta'];
@@ -95,19 +98,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('El archivo no debe superar los 5MB');
             }
 
-            $directorio_base = 'uploads/boletas/' . date('Y');
-            if (!file_exists($directorio_base)) {
-                mkdir($directorio_base, 0755, true);
+            // Carpeta relativa (desde raíz del sitio)
+            $carpeta_relativa = 'uploads/boletas/' . date('Y');
+            // Ruta absoluta en el servidor para crear el directorio y mover el archivo
+            $directorio_absoluto = $_SERVER['DOCUMENT_ROOT'] . '/' . $carpeta_relativa;
+
+            if (!file_exists($directorio_absoluto)) {
+                mkdir($directorio_absoluto, 0755, true);
             }
 
             $nombre_archivo = 'boleta_' . $id_estudiante . '_' . time() . '.' . $extension;
-            $ruta_completa = $directorio_base . '/' . $nombre_archivo;
+            $ruta_completa_absoluta = $directorio_absoluto . '/' . $nombre_archivo;
 
-            if (!move_uploaded_file($archivo['tmp_name'], $ruta_completa)) {
+            if (!move_uploaded_file($archivo['tmp_name'], $ruta_completa_absoluta)) {
                 throw new Exception('Error al subir el archivo. Verifica los permisos del directorio.');
             }
 
-            $ruta_archivo = $ruta_completa;
+            // Solo guardamos la ruta RELATIVA en la base de datos
+            $ruta_archivo = $carpeta_relativa . '/' . $nombre_archivo;
         }
 
         $pdo->beginTransaction();
@@ -128,7 +136,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user_id
         ]);
 
-        // Actualizar promedio actual
         if ($estudiante['Id_Beca']) {
             $sql_update_promedio = "UPDATE Becas_Otorgadas 
                                     SET Promedio_Actual = ?
@@ -136,7 +143,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt_update = $pdo->prepare($sql_update_promedio);
             $stmt_update->execute([$promedio, $estudiante['Id_Beca']]);
             
-            // SUSPENSIÓN AUTOMÁTICA si promedio < 75
             if ($promedio < 75) {
                 $sql_suspender = "UPDATE Becas_Otorgadas 
                                  SET Estado_Beca = 'Suspendida',
@@ -147,14 +153,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt_suspender = $pdo->prepare($sql_suspender);
                 $stmt_suspender->execute([$motivo, $estudiante['Id_Beca']]);
                 
-                // Actualizar estado del estudiante
                 $sql_suspender_est = "UPDATE Estudiantes 
                                      SET Estado_Beca = 'Suspendido'
                                      WHERE Id_Estudiante = ?";
                 $stmt_suspender_est = $pdo->prepare($sql_suspender_est);
                 $stmt_suspender_est->execute([$id_estudiante]);
                 
-                // Registro en bitácora de suspensión
                 $sql_bitacora_suspension = "INSERT INTO Bitacora (Id_Usuario, Actividades, Fecha)
                                            VALUES (?, ?, CURDATE())";
                 $actividad_suspension = "🚫 BECA SUSPENDIDA AUTOMÁTICAMENTE - {$estudiante['Nombres_Apellidos']} - Promedio: {$promedio} puntos (Mínimo: 75)";
@@ -163,14 +167,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Registro en bitácora
         $sql_bitacora = "INSERT INTO Bitacora (Id_Usuario, Actividades, Fecha)
                          VALUES (?, ?, CURDATE())";
         $actividad = "Registró boleta de calificaciones para {$estudiante['Nombres_Apellidos']} - Promedio: {$promedio}";
         $stmt_bitacora = $pdo->prepare($sql_bitacora);
         $stmt_bitacora->execute([$user_id, $actividad]);
 
-        // Alerta si está por debajo del mínimo
         if ($estudiante['Promedio_Minimo'] && $promedio < $estudiante['Promedio_Minimo']) {
             $sql_alerta = "INSERT INTO Bitacora (Id_Usuario, Actividades, Fecha)
                           VALUES (?, ?, CURDATE())";
@@ -199,13 +201,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Recargar datos
         $stmt_boletas->execute([$id_estudiante]);
         $boletas_anteriores = $stmt_boletas->fetchAll(PDO::FETCH_ASSOC);
         $stmt->execute([$id_estudiante]);
         $estudiante = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        // Limpiar datos del formulario después del éxito
         $datos_formulario = [];
 
     } catch (PDOException $e) {
@@ -237,6 +237,39 @@ $periodos_escolares = [
     'Segundo Semestre',
     'Anual'
 ];
+
+if (!function_exists('getInitials')) {
+    function getInitials($name) {
+        $words = explode(' ', trim($name));
+        $initials = '';
+        foreach ($words as $word) {
+            if (!empty($word)) {
+                $initials .= strtoupper(mb_substr($word, 0, 1));
+            }
+        }
+        return mb_substr($initials, 0, 2);
+    }
+}
+
+/**
+ * Convierte cualquier ruta almacenada en BD a una URL web válida.
+ * Maneja tanto rutas absolutas antiguas (/var/www/html/uploads/...)
+ * como rutas relativas nuevas (uploads/boletas/...).
+ */
+function buildFileUrl($ruta) {
+    if (empty($ruta)) return null;
+    // Si la ruta ya es relativa (no empieza con /), úsala directamente
+    if (!str_starts_with($ruta, '/')) {
+        return '/' . $ruta;
+    }
+    // Si es una ruta absoluta del servidor, extrae la parte relativa
+    // Elimina el prefijo /var/www/html o similar hasta llegar a /uploads
+    if (preg_match('#(/uploads/.+)$#', $ruta, $m)) {
+        return $m[1];
+    }
+    // Fallback: devolver tal cual (podría fallar, pero al menos no rompe)
+    return $ruta;
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -718,7 +751,6 @@ $periodos_escolares = [
             color: #721c24; 
         }
 
-        /* Modal de confirmación */
         .modal {
             display: none;
             position: fixed;
@@ -831,10 +863,6 @@ $periodos_escolares = [
                 gap: 15px;
                 text-align: center;
             }
-            
-            .stats-row {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
 </head>
@@ -843,7 +871,6 @@ $periodos_escolares = [
     
     <div class="container">
         <main class="main-content">
-            <!-- Header -->
             <div class="header">
                 <h1>Subir Boleta de Calificaciones</h1>
                 <div class="user-info">
@@ -1025,6 +1052,8 @@ $periodos_escolares = [
                             } elseif ($boleta['Promedio'] < 80) {
                                 $clase_promedio = 'regular';
                             }
+                            // ── CORRECCIÓN: construir URL correcta desde la ruta guardada ──
+                            $url_archivo = buildFileUrl($boleta['Archivo_Boleta'] ?? null);
                         ?>
                         <div class="boleta-item <?= $clase_promedio === 'malo' ? 'promedio-bajo-item' : '' ?>">
                             <div class="boleta-info">
@@ -1045,12 +1074,12 @@ $periodos_escolares = [
                                 </span>
                                 <span style="font-size: 0.85em; color: #7f8c8d;">puntos</span>
                             </div>
-                            <?php if ($boleta['Archivo_Boleta']): ?>
+                            <?php if ($url_archivo): ?>
                             <div class="boleta-acciones">
-                                <a href="<?= htmlspecialchars($boleta['Archivo_Boleta']) ?>" 
+                                <a href="<?= htmlspecialchars($url_archivo) ?>" 
                                    target="_blank" 
                                    class="btn btn-primary btn-small">
-                                    <i class="fas fa-download"></i> Ver
+                                    <i class="fas fa-eye"></i> Ver
                                 </a>
                             </div>
                             <?php endif; ?>
@@ -1078,12 +1107,8 @@ $periodos_escolares = [
             </div>
             <div class="modal-body">
                 <h3>El promedio ingresado (<span id="promedioModal"></span> puntos) es menor a 75 puntos</h3>
-                <p>
-                    <strong>Esto causará la SUSPENSIÓN AUTOMÁTICA de la beca.</strong>
-                </p>
-                <p>
-                    Al confirmar esta acción:
-                </p>
+                <p><strong>Esto causará la SUSPENSIÓN AUTOMÁTICA de la beca.</strong></p>
+                <p>Al confirmar esta acción:</p>
                 <ul>
                     <li><strong>La beca será suspendida inmediatamente</strong></li>
                     <li>El estado de la beca cambiará a "Suspendida"</li>
@@ -1123,9 +1148,7 @@ $periodos_escolares = [
                         <p style="color: #856404; font-weight: 600; margin-top: 10px;">
                             El promedio ingresado (${promedio} puntos) está por debajo del umbral de 75 puntos.
                         </p>
-                        <p style="color: #856404; margin-top: 10px;">
-                            <strong>Consecuencias:</strong>
-                        </p>
+                        <p style="color: #856404; margin-top: 10px;"><strong>Consecuencias:</strong></p>
                         <ul>
                             <li>La beca será <strong>SUSPENDIDA AUTOMÁTICAMENTE</strong></li>
                             <li>El estudiante no recibirá más pagos</li>
@@ -1203,12 +1226,12 @@ $periodos_escolares = [
             fileUploadButton.addEventListener(eventName, unhighlight, false);
         });
 
-        function highlight(e) {
+        function highlight() {
             fileUploadButton.style.borderColor = '#ffc107';
             fileUploadButton.style.background = '#fffbf0';
         }
 
-        function unhighlight(e) {
+        function unhighlight() {
             fileUploadButton.style.borderColor = '#e9ecef';
             fileUploadButton.style.background = '#f8f9fa';
         }
@@ -1222,14 +1245,12 @@ $periodos_escolares = [
             mostrarNombreArchivo(fileInput);
         }
         
-        // Verificar promedio si hay datos precargados
         <?php if (!empty($datos_formulario['promedio'])): ?>
         window.addEventListener('load', function() {
             verificarPromedio(<?= $datos_formulario['promedio'] ?>);
         });
         <?php endif; ?>
 
-        // Mostrar SweetAlert si hay mensajes de sesión
         <?php if (isset($_SESSION['error'])): ?>
             Swal.fire({
                 icon: 'error',

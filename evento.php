@@ -849,9 +849,7 @@ $dias_semana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sáb
                             <h3>Horario</h3>
                             <p>
                                 Inicio: <?php echo date('h:i A', strtotime($evento['Hora_Inicio'])); ?>
-                                <?php if (!empty($evento['Hora_Salida'])): ?>
-                                | Salida: <?php echo date('h:i A', strtotime($evento['Hora_Salida'])); ?>
-                                <?php endif; ?>
+                                
                             </p>
                         </div>
                     </div>

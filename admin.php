@@ -66,7 +66,6 @@ $alturas = array_map(function($cant) use ($max_cantidad) {
     return $max_cantidad > 0 ? ($cant / $max_cantidad) * 200 : 0;
 }, $cantidades);
 
-// Obtener solicitudes recientes
 $sql_recientes = "
     SELECT 
         s.Id_Solicitud,
@@ -83,41 +82,6 @@ $sql_recientes = "
 ";
 $stmt_recientes = $pdo->query($sql_recientes);
 $recientes = $stmt_recientes->fetchAll(PDO::FETCH_ASSOC);
-
-// Obtener alertas activas
-$sql_alertas = "
-    SELECT 
-        e.Id_Estudiante,
-        e.Nombres_Apellidos,
-        b.Id_Beca,
-        b.Promedio_Minimo,
-        b.Promedio_Actual,
-        CASE 
-            WHEN b.Promedio_Actual < b.Promedio_Minimo THEN 1
-            ELSE 0
-        END as alerta_promedio,
-        CASE 
-            WHEN DATEDIFF(CURDATE(), 
-                (SELECT MAX(Fecha_Pago) FROM Pagos_Becas WHERE Id_Beca = b.Id_Beca)) > 25 
-            THEN 1
-            ELSE 0
-        END as alerta_pago,
-        CASE 
-            WHEN NOT EXISTS (
-                SELECT 1 FROM Boletas_Calificaciones 
-                WHERE Id_Estudiante = e.Id_Estudiante 
-                AND Fecha_Subida >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
-            ) THEN 1
-            ELSE 0
-        END as alerta_boleta
-    FROM Estudiantes e
-    INNER JOIN Becas_Otorgadas b ON e.Id_Estudiante = b.Id_Estudiante
-    WHERE b.Estado_Beca = 'Activa'
-    HAVING alerta_promedio = 1 OR alerta_pago = 1 OR alerta_boleta = 1
-    LIMIT 5
-";
-$stmt_alertas = $pdo->query($sql_alertas);
-$alertas = $stmt_alertas->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -135,7 +99,6 @@ $alertas = $stmt_alertas->fetchAll(PDO::FETCH_ASSOC);
         <?php include 'sidebar.php'; ?>
         
         <main class="main-content">
-            <!-- Header -->
             <div class="header">
                 <h1>Dashboard</h1>
                 <div class="user-info">
@@ -163,6 +126,7 @@ $alertas = $stmt_alertas->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                 </div>
             </div>
+
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon blue">
@@ -225,33 +189,7 @@ $alertas = $stmt_alertas->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </div>
 
-            <?php if (count($alertas) > 0): ?>
-            <div class="alerts-section">
-                <h3><i class="fas fa-exclamation-triangle"></i> Alertas Activas</h3>
-                <?php foreach ($alertas as $alerta): ?>
-                <div class="alert-item">
-                    <div class="alert-content">
-                        <div class="alert-title">
-                            <?= htmlspecialchars($alerta['Nombres_Apellidos']) ?>
-                        </div>
-                        <div class="alert-description">
-                            <?php if ($alerta['alerta_promedio']): ?>
-                                <i class="fas fa-exclamation-circle"></i> Promedio bajo: <?= $alerta['Promedio_Actual'] ?> (mínimo: <?= $alerta['Promedio_Minimo'] ?>)
-                            <?php elseif ($alerta['alerta_pago']): ?>
-                                <i class="fas fa-dollar-sign"></i> Pago próximo a vencer
-                            <?php elseif ($alerta['alerta_boleta']): ?>
-                                <i class="fas fa-file-alt"></i> Sin boleta reciente (más de 60 días)
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <a href="detalle_becado.php?id=<?= $alerta['Id_Estudiante'] ?>" class="alert-action">
-                        Ver Detalles
-                    </a>
-                </div>
-                <?php endforeach; ?>
-            </div>
-            <?php endif; ?>
-        </div>
+        </main>
     </div>
 </body>
 </html>

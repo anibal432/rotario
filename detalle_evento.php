@@ -1,5 +1,9 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 session_start();
+
+
 require_once 'conexion.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -14,6 +18,19 @@ $id_evento = $_GET['id'] ?? null;
 if (!$id_evento) {
     header('Location: ver_eventos.php');
     exit;
+}
+
+if (!function_exists('getInitials')) {
+    function getInitials($name) {
+        $words = explode(' ', trim($name));
+        $initials = '';
+        foreach ($words as $word) {
+            if (!empty($word)) {
+                $initials .= strtoupper(substr($word, 0, 1));
+            }
+        }
+        return substr($initials, 0, 2);
+    }
 }
 
 // Obtener información completa del evento
@@ -93,19 +110,16 @@ $sql_inscritos = "SELECT
 
 $params = [$id_evento];
 
-// Aplicar filtro de categoría
 if ($filtro_categoria !== 'Todas') {
     $sql_inscritos .= " AND c.Nombre_Categoria = ?";
     $params[] = $filtro_categoria;
 }
 
-// Aplicar filtro de estado
 if ($filtro_estado !== 'Todos') {
     $sql_inscritos .= " AND ie.Estado_Inscripcion = ?";
     $params[] = $filtro_estado;
 }
 
-// Aplicar búsqueda
 if (!empty($busqueda)) {
     $sql_inscritos .= " AND (ie.Nombre_Completo LIKE ? OR ie.Email LIKE ? OR ie.Numero_Participante LIKE ?)";
     $busqueda_param = "%{$busqueda}%";
@@ -135,7 +149,7 @@ $stmt_stats_cat = $pdo->prepare($sql_stats_cat);
 $stmt_stats_cat->execute([$id_evento]);
 $stats_categorias = $stmt_stats_cat->fetchAll(PDO::FETCH_ASSOC);
 
-// Inscripciones recientes (para el tab original)
+// Inscripciones recientes
 $sql_recientes = "SELECT ie.*, c.Nombre_Categoria
                   FROM Inscripciones_Evento ie
                   LEFT JOIN Categorias_Evento c ON ie.Id_Categoria = c.Id_Categoria
@@ -145,16 +159,6 @@ $sql_recientes = "SELECT ie.*, c.Nombre_Categoria
 $stmt_rec = $pdo->prepare($sql_recientes);
 $stmt_rec->execute([$id_evento]);
 $inscripciones_recientes = $stmt_rec->fetchAll(PDO::FETCH_ASSOC);
-
-// Función para obtener iniciales
-function getInitials($name) {
-    $words = explode(' ', $name);
-    $initials = '';
-    foreach ($words as $word) {
-        $initials .= strtoupper(substr($word, 0, 1));
-    }
-    return substr($initials, 0, 2);
-}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -176,8 +180,10 @@ function getInitials($name) {
         }
         
         .main-content { 
-            min-height: 100vh;
-        }
+    min-height: 100vh;
+    margin-left: 280px; /* o el ancho que tenga tu sidebar */
+    transition: margin-left 0.3s ease;
+}
         
         .top-bar {
             background: white;
@@ -678,7 +684,7 @@ function getInitials($name) {
             align-items: center;
             margin-bottom: 20px;
             padding-bottom: 15px;
-            border-bottom: 2px solid #e9ecef;
+            border-top: 2px solid #e9ecef;
             flex-wrap: wrap;
             gap: 15px;
         }
@@ -698,79 +704,38 @@ function getInitials($name) {
         }
         
         @media (max-width: 1024px) {
-            .filtros-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .stats-grid {
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            }
-            
-            .event-meta {
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            }
+            .filtros-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+            .event-meta { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
         }
         
         @media (max-width: 768px) {
-            .container {
-                padding: 20px;
-            }
-            .event-meta { 
-                grid-template-columns: 1fr;
-            }
-            .tab-header { 
-                overflow-x: auto; 
-            }
-            .tab-button {
-                padding: 15px 20px;
-                font-size: 0.9em;
-            }
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .event-title {
-                font-size: 1.5em;
-            }
-            .event-banner {
-                height: 200px;
-            }
-            .filtros-grid {
-                grid-template-columns: 1fr;
-            }
-            .total-inscritos-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            .top-bar {
-                padding: 15px 20px;
-            }
+            .container { padding: 20px; }
+            .event-meta { grid-template-columns: 1fr; }
+            .tab-header { overflow-x: auto; }
+            .tab-button { padding: 15px 20px; font-size: 0.9em; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .event-title { font-size: 1.5em; }
+            .event-banner { height: 200px; }
+            .filtros-grid { grid-template-columns: 1fr; }
+            .total-inscritos-header { flex-direction: column; align-items: flex-start; }
+            .top-bar { padding: 15px 20px; }
         }
         
         @media (max-width: 480px) {
-            .container {
-                padding: 15px;
-            }
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-            .event-banner {
-                height: 150px;
-                border-radius: 8px;
-            }
-            .tab-content {
-                padding: 15px;
-            }
-            .stat-card h3 {
-                font-size: 2em;
-            }
+            .container { padding: 15px; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .event-banner { height: 150px; border-radius: 8px; }
+            .tab-content { padding: 15px; }
+            .stat-card h3 { font-size: 2em; }
         }
     </style>
 </head>
 <body>
+    
     <?php include 'sidebar.php'; ?>
     
     <div class="main-content">
-        <!-- Header igual a admin.php -->
         <div class="top-bar">
             <div class="breadcrumb">
                 <a href="ver_eventos.php"><i class="fas fa-calendar-alt"></i> Eventos</a>
@@ -782,15 +747,9 @@ function getInitials($name) {
                     <?php
                         $iconClass = '';
                         switch ($role) {
-                            case 'Administrador':
-                                $iconClass = 'fa-solid fa-crown';
-                                break;
-                            case 'Coordinador':
-                                $iconClass = 'fa-solid fa-user-tie';
-                                break;
-                            default:
-                                $iconClass = 'fa-solid fa-user';
-                                break;
+                            case 'Administrador': $iconClass = 'fa-solid fa-crown'; break;
+                            case 'Coordinador':   $iconClass = 'fa-solid fa-user-tie'; break;
+                            default:              $iconClass = 'fa-solid fa-user'; break;
                         }
                     ?>
                     <i class="<?= $iconClass ?> user-role-icon"></i>
@@ -808,23 +767,20 @@ function getInitials($name) {
                 <?php if ($evento['Imagen_Banner']): ?>
                     <img src="<?= htmlspecialchars($evento['Imagen_Banner']) ?>" alt="<?= htmlspecialchars($evento['Nombre_Evento']) ?>">
                 <?php else: ?>
-                    <div class="event-banner-placeholder">
+                    <div class="event-banner-placeholder" style="width:100%;height:100%;">
                         <i class="fas fa-running"></i>
                     </div>
                 <?php endif; ?>
             </div>
             
             <div class="event-header">
-                <?php
-                    $estado_clase = strtolower(str_replace(' ', '_', $evento['Estado_Evento']));
-                ?>
+                <?php $estado_clase = strtolower(str_replace(' ', '_', $evento['Estado_Evento'])); ?>
                 <div class="event-title">
-                    <div class="event-title-text">
-                        <?= htmlspecialchars($evento['Nombre_Evento']) ?>
-                    </div>
-                    <span class="badge badge-<?= $estado_clase ?>">
-                        <?= $evento['Estado_Evento'] ?>
-                    </span>
+                    <div class="event-title-text"><?= htmlspecialchars($evento['Nombre_Evento']) ?></div>
+                    <span class="badge badge-<?= $estado_clase ?>"><?= $evento['Estado_Evento'] ?></span>
+                    <a href="editar_evento.php?id=<?= $id_evento ?>" class="btn btn-primary">
+        <i class="fas fa-edit"></i> Editar Evento
+    </a>
                 </div>
                 <div class="event-meta">
                     <div class="event-meta-item">
@@ -862,29 +818,29 @@ function getInitials($name) {
                     <p>Pendientes</p>
                 </div>
                 <div class="stat-card">
-                    <h3>Q<?= number_format($stats['Total_Recaudado'], 2) ?></h3>
+                    <h3>Q<?= number_format($stats['Total_Recaudado'] ?? 0, 2) ?></h3>
                     <p>Recaudado</p>
                 </div>
             </div>
             
             <div class="tabs">
                 <div class="tab-header">
-                    <button class="tab-button active" onclick="openTab('info')">
+                    <button class="tab-button active" onclick="openTab(event, 'info')">
                         <i class="fas fa-info-circle"></i> Información General
                     </button>
-                    <button class="tab-button" onclick="openTab('categorias')">
+                    <button class="tab-button" onclick="openTab(event, 'categorias')">
                         <i class="fas fa-medal"></i> Categorías
                     </button>
-                    <button class="tab-button" onclick="openTab('costos')">
+                    <button class="tab-button" onclick="openTab(event, 'costos')">
                         <i class="fas fa-dollar-sign"></i> Costos
                     </button>
-                    <button class="tab-button" onclick="openTab('cuentas')">
+                    <button class="tab-button" onclick="openTab(event, 'cuentas')">
                         <i class="fas fa-university"></i> Cuentas Bancarias
                     </button>
-                    <button class="tab-button" onclick="openTab('todos-inscritos')">
+                    <button class="tab-button" onclick="openTab(event, 'todos-inscritos')">
                         <i class="fas fa-list-ul"></i> Todos los Inscritos (<?= count($todos_inscritos) ?>)
                     </button>
-                    <button class="tab-button" onclick="openTab('inscritos')">
+                    <button class="tab-button" onclick="openTab(event, 'inscritos')">
                         <i class="fas fa-users"></i> Últimas Inscripciones
                     </button>
                 </div>
@@ -901,10 +857,10 @@ function getInitials($name) {
                             <div class="info-value"><?= $evento['Cupo_Maximo'] ?> participantes</div>
                         </div>
                         <?php endif; ?>
-                        <?php if ($evento['Hora_Salida']): ?>
+                        <?php if ($evento['Hora_Inicio']): ?>
                         <div class="info-item">
-                            <div class="info-label">Hora de Salida/Llegada</div>
-                            <div class="info-value"><?= date('H:i', strtotime($evento['Hora_Salida'])) ?></div>
+                            <div class="info-label">Hora de Inicio</div>
+                            <div class="info-value"><?= date('H:i', strtotime($evento['Hora_Inicio'])) ?></div>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -1022,9 +978,7 @@ function getInitials($name) {
                     <?php endif; ?>
                 </div>
                 
-                <!-- NUEVO TAB: TODOS LOS INSCRITOS -->
                 <div id="todos-inscritos" class="tab-content">
-                    <!-- Estadísticas por categoría -->
                     <?php if (count($stats_categorias) > 0): ?>
                     <div class="stats-categorias">
                         <?php foreach ($stats_categorias as $stat_cat): ?>
@@ -1040,7 +994,6 @@ function getInitials($name) {
                     </div>
                     <?php endif; ?>
                     
-                    <!-- Filtros -->
                     <div class="filtros-section">
                         <form method="GET" action="">
                             <input type="hidden" name="id" value="<?= $id_evento ?>">
@@ -1049,7 +1002,6 @@ function getInitials($name) {
                                     <label><i class="fas fa-search"></i> Buscar</label>
                                     <input type="text" name="busqueda" placeholder="Nombre, email o número..." value="<?= htmlspecialchars($busqueda) ?>">
                                 </div>
-                                
                                 <div class="form-group">
                                     <label><i class="fas fa-medal"></i> Categoría</label>
                                     <select name="categoria">
@@ -1062,7 +1014,6 @@ function getInitials($name) {
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
-                                
                                 <div class="form-group">
                                     <label><i class="fas fa-filter"></i> Estado</label>
                                     <select name="estado">
@@ -1072,14 +1023,12 @@ function getInitials($name) {
                                         <option value="Cancelado" <?= $filtro_estado === 'Cancelado' ? 'selected' : '' ?>>Cancelados</option>
                                     </select>
                                 </div>
-                                
                                 <div class="form-group">
                                     <label>&nbsp;</label>
                                     <button type="submit" class="btn btn-primary">
                                         <i class="fas fa-search"></i> Buscar
                                     </button>
                                 </div>
-                                
                                 <?php if (!empty($busqueda) || $filtro_categoria !== 'Todas' || $filtro_estado !== 'Todos'): ?>
                                 <div class="form-group">
                                     <label>&nbsp;</label>
@@ -1165,7 +1114,6 @@ function getInitials($name) {
                     <?php endif; ?>
                 </div>
                 
-                <!-- TAB ORIGINAL: INSCRITOS RECIENTES -->
                 <div id="inscritos" class="tab-content">
                     <?php if (count($inscripciones_recientes) > 0): ?>
                     <div class="table-container">
@@ -1199,7 +1147,7 @@ function getInitials($name) {
                         </table>
                     </div>
                     <div style="margin-top: 20px; text-align: center;">
-                        <a href="revisar_inscrpciones.php?evento=<?= $id_evento ?>" class="btn btn-primary">
+                        <a href="revisar_inscripciones.php?evento=<?= $id_evento ?>" class="btn btn-primary">
                             <i class="fas fa-clipboard-check"></i> Revisar Todas las Inscripciones
                         </a>
                     </div>
@@ -1215,7 +1163,7 @@ function getInitials($name) {
     </div>
     
     <script>
-        function openTab(tabName) {
+        function openTab(event, tabName) {
             const tabs = document.querySelectorAll('.tab-content');
             const buttons = document.querySelectorAll('.tab-button');
             
@@ -1226,7 +1174,6 @@ function getInitials($name) {
             event.target.closest('.tab-button').classList.add('active');
         }
 
-        // SweetAlert para confirmaciones si es necesario en el futuro
         function confirmAction(message, url) {
             Swal.fire({
                 title: '¿Estás seguro?',
@@ -1244,7 +1191,6 @@ function getInitials($name) {
             });
         }
 
-        // Mostrar mensajes de éxito/error con SweetAlert si existen en la URL
         <?php if (isset($_GET['success'])): ?>
             Swal.fire({
                 icon: 'success',

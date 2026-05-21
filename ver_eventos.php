@@ -327,7 +327,7 @@ $años_disponibles = $stmt_años->fetchAll(PDO::FETCH_COLUMN);
                             <i class="fas fa-search"></i> Filtrar
                         </button>
 
-                        <a href="crear_evento.php" class="btn btn-success">
+                        <a href="Crear_evento.php" class="btn btn-success">
                             <i class="fas fa-plus"></i> Nuevo Evento
                         </a>
                     </div>
@@ -417,7 +417,7 @@ $años_disponibles = $stmt_años->fetchAll(PDO::FETCH_COLUMN);
                                 <i class="fas fa-eye"></i> Ver Detalle
                             </a>
                             <?php if (!$esta_archivado): ?>
-                            <a href="revisar_inscripciones.php?evento=<?= $evento['Id_Evento'] ?>" class="btn btn-success btn-small">
+                            <a href="revisar_inscrpciones.php?evento=<?= $evento['Id_Evento'] ?>" class="btn btn-success btn-small">
                                 <i class="fas fa-clipboard-check"></i> Inscripciones
                             </a>
                             <?php endif; ?>
