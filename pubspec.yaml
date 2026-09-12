@@ -1,0 +1,84 @@
+name: ia_gt
+description: App móvil con ia
+publish_to: 'none'
+version: 1.0.0+44
+ 
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+ 
+dependencies:
+  flutter:
+    sdk: flutter
+  #======================
+  #Excel
+  excel: ^4.0.6
+  path_provider: ^2.1.4
+  share_plus: ^11.1.0
+  #=======================
+  #Mensajes push o notificaciones push
+  firebase_messaging: ^15.1.5
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
+  # ==============================
+  # IA - TensorFlow Lite
+  # ==============================
+  tflite_flutter: ^0.12.1
+  image_picker: ^1.2.1
+  # ==============================
+  # IA - Validación previa de imagen (ML Kit)
+  # ==============================
+  google_mlkit_image_labeling: ^0.15.0
+  # ==============================
+  # Firebase
+  # ==============================
+  firebase_core: ^3.10.0
+  firebase_auth: ^5.3.5
+  cloud_firestore: ^5.5.2
+
+  # ==============================
+  # Google Sign-In
+  # ==============================
+  google_sign_in: ^6.2.2
+
+  # ==============================
+  # Geolocalización y Mapas
+  # ==============================
+  geolocator: ^13.0.2
+  permission_handler: ^11.3.1
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # ==============================
+  # HTTP y utilidades
+  # ==============================
+  http: ^1.2.2
+  url_launcher: ^6.3.1
+  intl: ^0.19.0
+
+  # ==============================
+  # UI
+  # ==============================
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+  # IMPORTANTE: mover aquí
+  flutter_launcher_icons: ^0.14.4
+
+# CONFIGURACIÓN DEL ICONO
+flutter_icons:
+  android: true
+  #ios: true
+  image_path: "assets/images/logo_dental.png"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/modelo_dental.tflite
+    - assets/images/logo_dental.png
+    - assets/dental_clinics.json
+   # - assets/images/icono.png
